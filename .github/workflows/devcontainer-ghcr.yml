@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '37 2 * * *'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -37,5 +41,5 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ghcr.io/dl6er/brother-ql-web:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           platforms: linux/amd64,linux/arm64
