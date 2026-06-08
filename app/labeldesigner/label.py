@@ -1,4 +1,4 @@
-from .enums import LabelContent, LabelOrientation, LabelType
+from .enums import LabelContent, LabelOrientation, LabelType, CodeTextPosition
 import os
 import uuid
 from qrcode import QRCode, constants
@@ -60,6 +60,7 @@ class SimpleLabel:
         counter: int = 0,
         red_support: bool = False,
         code_text: str = '',
+        code_position: Optional[CodeTextPosition] = None,
     ):
         """Initialize a SimpleLabel object."""
         # Input validation
@@ -98,6 +99,7 @@ class SimpleLabel:
         self._timestamp = timestamp
         self._red_support = red_support
         self._code_text = code_text
+        self._code_position = code_position
 
     @property
     def label_content(self):
@@ -309,45 +311,55 @@ class SimpleLabel:
             bboxes = []
             textsize = (0, 0, 0, 0)
 
-        # Adjust label size for endless label
-        if self._label_orientation == LabelOrientation.STANDARD:
-            if self._label_type in (LabelType.ENDLESS_LABEL,):
-                height = img_height + textsize[3] - textsize[1] + margin_top + margin_bottom
-        elif self._label_orientation == LabelOrientation.ROTATED:
-            if self._label_type in (LabelType.ENDLESS_LABEL,):
-                width = img_width + textsize[2] + margin_left + margin_right
+        # Adjust label size for endless label and compute layout offsets
+        use_explicit_position = (
+            self._label_content == LabelContent.TEXT_QRCODE
+            and self._code_position is not None
+        )
+        if use_explicit_position:
+            horizontal_offset_image, vertical_offset_image, \
+            horizontal_offset_text, vertical_offset_text, \
+            width, height = self._compute_code_text_offsets(
+                img_width, img_height, textsize, width, height)
+        else:
+            if self._label_orientation == LabelOrientation.STANDARD:
+                if self._label_type in (LabelType.ENDLESS_LABEL,):
+                    height = img_height + textsize[3] - textsize[1] + margin_top + margin_bottom
+            elif self._label_orientation == LabelOrientation.ROTATED:
+                if self._label_type in (LabelType.ENDLESS_LABEL,):
+                    width = img_width + textsize[2] + margin_left + margin_right
 
-        if self._label_orientation == LabelOrientation.STANDARD:
-            if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
-                vertical_offset_text = (height - img_height - textsize[3])//2
+            if self._label_orientation == LabelOrientation.STANDARD:
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    vertical_offset_text = (height - img_height - textsize[3])//2
+                    vertical_offset_text += (margin_top - margin_bottom)//2
+                else:
+                    vertical_offset_text = margin_top
+                    if self.need_image_text_distance:
+                        # Slightly increase the margin to get some distance from the
+                        # QR code
+                        vertical_offset_text *= 1.25
+
+                vertical_offset_text += img_height
+                horizontal_offset_text = max((width - textsize[2])//2, 0)
+                horizontal_offset_image = (width - img_width)//2
+                vertical_offset_image = margin_top
+
+            elif self._label_orientation == LabelOrientation.ROTATED:
+                vertical_offset_text = (height - textsize[3])//2
                 vertical_offset_text += (margin_top - margin_bottom)//2
-            else:
-                vertical_offset_text = margin_top
-                if self.need_image_text_distance:
-                    # Slightly increase the margin to get some distance from the
-                    # QR code
-                    vertical_offset_text *= 1.25
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    horizontal_offset_text = max((width - img_width - textsize[2])//2, 0)
+                else:
+                    horizontal_offset_text = margin_left
+                    if self.need_image_text_distance:
+                        # Slightly increase the margin to get some distance from the
+                        # QR code
+                        horizontal_offset_text *= 1.25
 
-            vertical_offset_text += img_height
-            horizontal_offset_text = max((width - textsize[2])//2, 0)
-            horizontal_offset_image = (width - img_width)//2
-            vertical_offset_image = margin_top
-
-        elif self._label_orientation == LabelOrientation.ROTATED:
-            vertical_offset_text = (height - textsize[3])//2
-            vertical_offset_text += (margin_top - margin_bottom)//2
-            if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
-                horizontal_offset_text = max((width - img_width - textsize[2])//2, 0)
-            else:
-                horizontal_offset_text = margin_left
-                if self.need_image_text_distance:
-                    # Slightly increase the margin to get some distance from the
-                    # QR code
-                    horizontal_offset_text *= 1.25
-
-            horizontal_offset_text += img_width
-            horizontal_offset_image = margin_left
-            vertical_offset_image = (height - img_height)//2
+                horizontal_offset_text += img_width
+                horizontal_offset_image = margin_left
+                vertical_offset_image = (height - img_height)//2
 
         text_offset = horizontal_offset_text, vertical_offset_text
         image_offset = horizontal_offset_image, vertical_offset_image
@@ -393,6 +405,54 @@ class SimpleLabel:
             # Draw (rounded) rectangle
             draw.rounded_rectangle(rect, radius=self._border_roundness, outline=self._border_color, width=self._border_thickness)
         return imgResult
+
+    def _compute_code_text_offsets(self, img_width, img_height, textsize, width, height):
+        """
+        Compute image/text offsets for TEXT_QRCODE mode with an explicit code_position.
+        Returns (horiz_img, vert_img, horiz_text, vert_text, new_width, new_height).
+        """
+        pos = self._code_position
+        text_height = textsize[3] - textsize[1]
+        text_width = textsize[2]
+        margin_left, margin_right, margin_top, margin_bottom = self._label_margin
+
+        dist = 0
+        if self.need_image_text_distance:
+            if pos in (CodeTextPosition.TOP, CodeTextPosition.BOTTOM):
+                dist = int(margin_top * 0.25)
+            else:
+                dist = int(margin_left * 0.25)
+
+        if pos in (CodeTextPosition.TOP, CodeTextPosition.BOTTOM):
+            if self._label_type == LabelType.ENDLESS_LABEL:
+                height = img_height + text_height + margin_top + margin_bottom
+            horiz_img = max((width - img_width) // 2, 0)
+            horiz_text = max((width - text_width) // 2, 0)
+            if pos == CodeTextPosition.TOP:
+                vert_img = margin_top
+                vert_text = margin_top + img_height + dist
+            else:  # BOTTOM
+                vert_text = margin_top
+                vert_img = margin_top + text_height + dist
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    vert_img = height - margin_bottom - img_height
+        else:  # LEFT, RIGHT
+            if self._label_type == LabelType.ENDLESS_LABEL:
+                width = img_width + text_width + margin_left + margin_right
+            vert_img = max((height - img_height) // 2, 0) + (margin_top - margin_bottom) // 2
+            vert_text = max((height - text_height) // 2, 0) + (margin_top - margin_bottom) // 2
+            if pos == CodeTextPosition.LEFT:
+                horiz_img = margin_left
+                horiz_text = margin_left + img_width + dist
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    horiz_text = width - margin_right - text_width
+            else:  # RIGHT
+                horiz_text = margin_left
+                horiz_img = margin_left + text_width + dist
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    horiz_img = width - margin_right - img_width
+
+        return (int(horiz_img), int(vert_img), int(horiz_text), int(vert_text), int(width), int(height))
 
     @staticmethod
     def _crop_image_to_content(img: Image.Image) -> Image.Image:
