@@ -183,6 +183,17 @@
                             data-default=""></textarea>
                         <div class="form-text text-muted">If filled, this will be used for generating barcodes/QR codes instead of the label
                             text.</div>
+
+                        <div id="codePositionContainer" style="display:none;">
+                            <label for="code_text_position" style="margin-top: 10px; margin-bottom: 0">Text Position:</label>
+                            <select class="form-control form-select" id="code_text_position" onchange="preview()" data-default="">
+                                <option value="" data-default="1">Auto (follows orientation)</option>
+                                <option value="top">Top — text below code</option>
+                                <option value="bottom">Bottom — text above code</option>
+                                <option value="left">Left — text right of code</option>
+                                <option value="right">Right — text left of code</option>
+                            </select>
+                        </div>
                         <!-- class="accordion-body" -->
                     </div>
                 </div>

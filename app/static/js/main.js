@@ -241,6 +241,7 @@ function formData(cut_once = false) {
         data['border_color'] = $('input[name=border_color]:checked').val();
     }
     data['code_text'] = $('#code_text').val() || '';
+    data['code_text_position'] = $('#code_text_position').val() || '';
 
     // Include selected printer if available
     const printerSelect = document.getElementById('printer');
@@ -290,6 +291,13 @@ function gen_label(preview = true, cut_once = false) {
         $('#groupLabelImage').show();
     } else {
         $('#groupLabelImage').hide();
+    }
+
+    // Show or hide code text position selector
+    if ($('input[name=print_type]:checked').val() == 'qrcode_text') {
+        $('#codePositionContainer').show();
+    } else {
+        $('#codePositionContainer').hide();
     }
 
     // Update status box

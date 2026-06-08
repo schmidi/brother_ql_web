@@ -8,6 +8,7 @@ from werkzeug.datastructures import FileStorage
 from .printer import PrinterQueue, get_ptr_status
 from brother_ql.labels import ALL_LABELS, FormFactor
 from .label import SimpleLabel, LabelContent, LabelOrientation, LabelType
+from .enums import CodeTextPosition
 from flask import Request, current_app, json, jsonify, render_template, request, make_response
 from werkzeug.utils import secure_filename
 from app.utils import (
@@ -472,6 +473,7 @@ def create_label_from_request(d: dict = {}, files: dict = {}, counter: int = 0):
         'timestamp': int(d.get('timestamp', 0)),
         'high_res': int(d.get('high_res', 0)) != 0,
         'code_text': d.get('code_text', '').strip(),
+        'code_text_position': d.get('code_text_position', ''),
     }
 
     def get_label_dimensions(label_size: str, high_res: bool = False):
@@ -553,6 +555,10 @@ def create_label_from_request(d: dict = {}, files: dict = {}, counter: int = 0):
         if len(line.get('text', '')) > 10_000:
             raise ValueError("Text is too long")
 
+    _pos_map = {'top': CodeTextPosition.TOP, 'bottom': CodeTextPosition.BOTTOM,
+                'left': CodeTextPosition.LEFT, 'right': CodeTextPosition.RIGHT}
+    code_position = _pos_map.get(context['code_text_position'], None)
+
     fore_color = (255, 0, 0) if context['print_color'] == 'red' else (0, 0, 0)
     border_color = (255, 0, 0) if context['border_color'] == 'red' else (0, 0, 0)
 
@@ -613,5 +619,6 @@ def create_label_from_request(d: dict = {}, files: dict = {}, counter: int = 0):
         border_color=border_color,
         timestamp=context['timestamp'],
         counter=counter,
-        code_text=context['code_text']
+        code_text=context['code_text'],
+        code_position=code_position,
     )

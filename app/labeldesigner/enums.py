@@ -20,3 +20,10 @@ class LabelType(Enum):
     ENDLESS_LABEL = auto()
     DIE_CUT_LABEL = auto()
     ROUND_DIE_CUT_LABEL = auto()
+
+
+class CodeTextPosition(Enum):
+    TOP = auto()
+    BOTTOM = auto()
+    LEFT = auto()
+    RIGHT = auto()
