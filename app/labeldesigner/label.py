@@ -425,32 +425,38 @@ class SimpleLabel:
 
         if pos in (CodeTextPosition.TOP, CodeTextPosition.BOTTOM):
             if self._label_type == LabelType.ENDLESS_LABEL:
-                height = img_height + text_height + margin_top + margin_bottom
+                if self._label_orientation == LabelOrientation.STANDARD:
+                    height = img_height + text_height + margin_top + margin_bottom
+                else:  # ROTATED: width grows
+                    width = max(img_width, text_width) + margin_left + margin_right
             horiz_img = max((width - img_width) // 2, 0)
             horiz_text = max((width - text_width) // 2, 0)
             if pos == CodeTextPosition.TOP:
-                vert_img = margin_top
-                vert_text = margin_top + img_height + dist
-            else:  # BOTTOM
                 vert_text = margin_top
                 vert_img = margin_top + text_height + dist
                 if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
                     vert_img = height - margin_bottom - img_height
+            else:  # BOTTOM
+                vert_img = margin_top
+                vert_text = margin_top + img_height + dist
         else:  # LEFT, RIGHT
             if self._label_type == LabelType.ENDLESS_LABEL:
-                width = img_width + text_width + margin_left + margin_right
+                if self._label_orientation == LabelOrientation.ROTATED:
+                    width = img_width + text_width + margin_left + margin_right
+                else:  # STANDARD: height grows
+                    height = max(img_height, text_height) + margin_top + margin_bottom
             vert_img = max((height - img_height) // 2, 0) + (margin_top - margin_bottom) // 2
             vert_text = max((height - text_height) // 2, 0) + (margin_top - margin_bottom) // 2
             if pos == CodeTextPosition.LEFT:
-                horiz_img = margin_left
-                horiz_text = margin_left + img_width + dist
-                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
-                    horiz_text = width - margin_right - text_width
-            else:  # RIGHT
                 horiz_text = margin_left
                 horiz_img = margin_left + text_width + dist
                 if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
                     horiz_img = width - margin_right - img_width
+            else:  # RIGHT
+                horiz_img = margin_left
+                horiz_text = margin_left + img_width + dist
+                if self._label_type in (LabelType.DIE_CUT_LABEL, LabelType.ROUND_DIE_CUT_LABEL):
+                    horiz_text = width - margin_right - text_width
 
         return (int(horiz_img), int(vert_img), int(horiz_text), int(vert_text), int(width), int(height))
 
